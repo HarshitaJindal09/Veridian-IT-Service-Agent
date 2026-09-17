@@ -2,7 +2,7 @@
 
 Tier-1 IT support agent for Veridian Corp, built on the Assignment 2 data pack (week of 21–25 Sep 2026).
 
-**Live demo:** _paste your artifact link here_
+**Live demo:** https://graceful-moonbeam-c565b7.netlify.app/
 **Run locally:** `git clone … && open veridian-it-agent.html` — single file, no build, no install, no keys.
 
 ---
@@ -16,18 +16,32 @@ All 15 employee requests and the 4 active tickets are pre-loaded. There is also 
 ## Architecture
 
 ```
-Intake ─► Classifier ─► Retriever ─► Policy engine ─► Ticket writer
-        (intent+conf)  (KB-01…10,   (decision, risk,   (structured JSON,
-                        AMP-01)      owner, SLA)        SLA, owner)
-                           │              │
-                           ▼              ▼
-                      Guardrails     LLM drafter
-                 (no source→no answer, (tone only — cannot change
-                  conflict/gap/breach   the decision or citations)
-                  detection)
-                           │
-                           ▼
-              Append-only audit trail (every event, every citation)
+Employee Request
+       │
+       ▼
+   Classifier
+(intent + confidence)
+       │
+       ▼
+    Retriever
+(KB-01…KB-10 + AMP-01)
+       │
+       ▼
+  Policy Engine
+(decision + risk + owner + SLA)
+       │
+   ┌───┴───────────────┐
+   ▼                   ▼
+Guardrails          LLM Drafter
+(conflict/gap/      (employee-facing
+ breach detection)   language only)
+   │                   │
+   └─────────┬─────────┘
+             ▼
+      Structured Ticket
+             │
+             ▼
+       Audit Trail
 ```
 
 **Hybrid by design.** Classification, decision, risk and routing sit in a deterministic rules layer so two identical tickets always get the same outcome and every outcome traces back to a policy line. The LLM (Claude Sonnet, called from inside the running app) only drafts employee-facing language, and is handed just the retrieved policy text plus the decision already made. If the model is unavailable the app falls back to deterministic templates — the UI labels each reply *LLM drafted* or *template*.
@@ -41,7 +55,7 @@ Intake ─► Classifier ─► Retriever ─► Policy engine ─► Ticket wri
 | REQ-10 admin access | Invents an approval path | Reports a knowledge gap (no KB covers privileged access), matches the TK-1050 rejection precedent, routes to a human |
 | REQ-15 "its not working" | Guesses | Confidence 0.34 → refuses to classify, asks scoping questions |
 | REQ-12 expense tool | Troubleshoots the login | Checks ownership first: account creation is Finance (KB-08), IT only owns login faults on an existing account |
-| REQ-13 flickering screen, 2 yrs | Replaces the laptop | Repair path — fails both refresh windows |
+| REQ-13 flickering screen, 2 yrs | Replaces the laptop | Does not meet the standard refresh-cycle threshold; routes for human hardware assessment rather than assuming replacement. |
 | REQ-02 guest Wi-Fi | Raises a ticket | Deflects to self-service kiosk — KB-07 says no ticket required |
 
 ## Inputs, sources, assumptions
